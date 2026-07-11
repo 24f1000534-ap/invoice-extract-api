@@ -120,8 +120,10 @@ def extract_invoice_fields(text: str) -> dict:
         r"Sub[\s-]?total\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+\.\d{1,2})",
         r"Sub[\s-]?total\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+)",
         r"(?:Net\s*Amount|Taxable\s*(?:Value|Amount)|Base\s*(?:Price|Amount)|Pre[\s-]?tax\s*Amount|Amount\s*before\s*Tax|Principal(?:\s*Amount)?|Value|Price|Cost|Charge)\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+(?:\.\d{1,2})?)\s*/?-?",
-        # bare "Amount:" but NOT "Total Amount"/"Grand Amount" and NOT followed by "Due"/"Payable"
-        r"(?<!Total\s)(?<!Grand\s)\bAmount\b\s*:?\.*\s*(?!.*(?:Due|Payable))(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+(?:\.\d{1,2})?)\s*/?-?",
+        # bare "Amount:" but NOT "Total Amount"/"Grand Amount", and NOT immediately
+        # followed on the SAME spot by "Due"/"Payable" (fixed: previously this
+        # incorrectly scanned the whole rest of the document, not just this match)
+        r"(?<!Total\s)(?<!Grand\s)\bAmount\b\s*:?\.*\s*(?!Due\b)(?!Payable\b)(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+(?:\.\d{1,2})?)\s*/?-?",
     ], text)
     amount = parse_amount(amount_raw)
 
@@ -132,7 +134,7 @@ def extract_invoice_fields(text: str) -> dict:
     ], text)
     tax = parse_amount(tax_raw)
 
-    # --- fallback: derive subtotal from Total - Tax when no subtotal label matched ---
+    # --- fallback 1: derive subtotal from Total - Tax when no subtotal label matched ---
     if amount is None:
         total_raw = find_first([
             r"(?:Grand\s*Total|Total\s*(?:Due|Payable|Amount)?|Amount\s*(?:Due|Payable))\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+(?:\.\d{1,2})?)\s*/?-?",
@@ -140,6 +142,20 @@ def extract_invoice_fields(text: str) -> dict:
         total = parse_amount(total_raw)
         if total is not None and tax is not None:
             amount = round(total - tax, 2)
+
+    # --- fallback 2: last resort — grab the first standalone currency-looking
+    # number in the text that isn't the tax value or part of a date, if we
+    # still have nothing at all ---
+    if amount is None:
+        candidates = re.findall(
+            r"(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)\s*([\d,]+(?:\.\d{1,2})?)|\b(\d{2,}(?:,\d{2,3})*(?:\.\d{1,2})?)\b",
+            text,
+        )
+        for a, b in candidates:
+            val = parse_amount(a or b)
+            if val is not None and val != tax:
+                amount = val
+                break
 
     # --- currency ---
     currency = find_first([
