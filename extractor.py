@@ -117,15 +117,18 @@ def extract_invoice_fields(text: str) -> dict:
 
     # --- subtotal (amount before tax) ---
     amount_raw = find_first([
-        r"Sub[\s-]?total\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD)?\s*([\d,]+\.\d{2})",
-        r"Sub[\s-]?total\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD)?\s*([\d,]+)",
+        r"Sub[\s-]?total\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+\.\d{1,2})",
+        r"Sub[\s-]?total\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+)",
+        r"(?:Net\s*Amount|Taxable\s*(?:Value|Amount)|Base\s*(?:Price|Amount))\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+(?:\.\d{1,2})?)",
+        # bare "Amount:" but NOT "Total Amount"/"Grand Amount" and NOT followed by "Due"/"Payable"
+        r"(?<!Total\s)(?<!Grand\s)\bAmount\b\s*:?\.*\s*(?!.*(?:Due|Payable))(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+(?:\.\d{1,2})?)",
     ], text)
     amount = parse_amount(amount_raw)
 
     # --- tax ---
     tax_raw = find_first([
-        r"(?:IGST|CGST|SGST|GST|VAT|Tax)\s*\([\d.]+%\)\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD)?\s*([\d,]+\.\d{2})",
-        r"(?:IGST|CGST|SGST|GST|VAT|Tax)\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD)?\s*([\d,]+\.\d{2})",
+        r"(?:IGST|CGST|SGST|GST|VAT|Tax)\s*\([\d.]+%\)\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+(?:\.\d{1,2})?)",
+        r"(?:IGST|CGST|SGST|GST|VAT|Tax)\s*:?\.*\s*(?:Rs\.?|INR|₹|\$|USD|€|EUR|£|GBP)?\s*([\d,]+(?:\.\d{1,2})?)",
     ], text)
     tax = parse_amount(tax_raw)
 
