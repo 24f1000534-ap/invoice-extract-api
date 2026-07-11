@@ -89,10 +89,12 @@ def extract_invoice_fields(text: str) -> dict:
 
     # --- invoice number ---
     invoice_no = find_first([
-        r"Invoice\s*No\.?\s*:\s*([A-Za-z0-9\-/]+)",
+        r"Invoice\s*(?:No\.?|Number)\s*:?\s*([A-Za-z0-9\-/]+)",
         r"Invoice\s*#\s*:?\s*([A-Za-z0-9\-/]+)",
-        r"Ref\.?\s*(?:No\.?)?\s*:\s*([A-Za-z0-9\-/]+)",
+        r"(?:Bill|Receipt|Order|Folio|Voucher|Transaction|Doc(?:ument)?)\s*(?:No\.?|Number|ID|#)\s*:?\s*([A-Za-z0-9\-/]+)",
+        r"Ref(?:erence)?\.?\s*(?:No\.?|Number)?\s*:\s*([A-Za-z0-9\-/]+)",
         r"\b([A-Z]{2,}[-/]\d{4}[-/][A-Za-z0-9]+)\b",  # e.g. NS/2026/778 or INV-2026-0041
+        r"\b([A-Z]{2,6}[-/]\d{3,})\b",                # e.g. FL-8822, INV-0041
     ], text)
 
     # --- date ---
